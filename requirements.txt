@@ -1,0 +1,3 @@
+# Standard library only - no third-party packages needed to run.
+# Optional, for cross-checking the parser during testing:
+# pefile
