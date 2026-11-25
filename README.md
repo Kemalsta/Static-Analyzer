@@ -41,8 +41,82 @@ Static PE header and heuristic analysis supports defensive triage and indicator 
 `Static-Analyzer` requires no third-party packages at runtime (Python standard library only). `requirements.txt` includes `pefile` as an optional commented dependency for cross-checking parser output during testing.
 
 ```bash
-git clone [https://github.com/Kemalsta/Static-Analyzer.git](https://github.com/Kemalsta/Static-Analyzer.git)
+git clone https://github.com/Kemalsta/Static-Analyzer.git
 cd Static-Analyzer
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+---
+
+## Usage Examples
+
+Running `main.py` first displays the legal disclaimer and requires typing `I AGREE` before any file is analysed.
+
+```bash
+# 1. Analyse the built-in harmless sample (samples/safe_sample.pe)
+python main.py
+
+# 2. Analyse a single file within an explicit scope root
+python main.py --target C:\Windows\System32\notepad.exe --scope-root C:\Windows\System32
+
+# 3. Recursively scan a directory tree with file and size caps
+python main.py -t ./my_samples --recursive --max-files 50 --max-size-mb 64
+
+# 4. Pause 2 seconds between files to test or demonstrate the kill switch (Ctrl+C)
+python main.py -t ./my_samples --delay 2
+
+# 5. Print JSON to stdout and save to a new output file (refuses to overwrite)
+python main.py --json -o output/report.json
+```
+
+### Exit Codes
+
+| Code | Meaning |
+| :--- | :--- |
+| `0` | Completed with all targeted inputs analysed cleanly |
+| `1` | Completed, but one or more files could not be parsed or no files were found |
+| `2` | Disclaimer declined or input aborted before analysis began |
+| `3` | Invalid numeric CLI option, target/scope error, or invalid/existing output path |
+| `130` | Aborted via `KillSwitch` / `KeyboardInterrupt` |
+
+---
+
+## Ethical Considerations
+
+* **Defensive & Educational Purpose Only:** Built for coursework, forensic lab triage, and authorized defensive analysis—never for unauthorized access, exploitation, or harm.
+* **Hints, Not Verdicts:** Heuristic findings in `_analyze()` are structural clues, not proof of maliciousness. Legitimate compilers, installers, or protected software can trigger similar indicators, while real malware may not.
+* **Data & Confidentiality Care:** Keep scanned samples and analysis outputs protected, avoid exposing sensitive paths or artifacts unintentionally, and handle discovered threats or weaknesses responsibly.
+
+---
+
+## Rules of Engagement (RoE)
+
+* **Authorized Scope:** Only scan files and directories that you own or have explicit written permission / course or lab authorization to inspect. `check_scope()` and `enumerate_targets()` resolve real paths (`Path.resolve()`) and reject targets or symlinks outside `--scope-root` (which defaults to the current working directory, or the `samples` directory when using the default built-in sample).
+* **Time Windows:** Execute scans and demonstrations only within approved academic lab sessions, coursework schedules, or authorized assessment windows.
+* **Permitted Techniques:** Read-only binary file inspection (`"rb"`), cryptographic hashing (`SHA-256`, `MD5`), PE header/data-directory/section/overlay parsing, heuristic structural checks, and text or JSON report generation.
+* **Prohibited Actions:** Never execute, inject, or run untrusted/malware binaries on host or unauthorized systems; never scan targets outside `--scope-root`; never overwrite existing files (`check_output_path()` enforces writing only to a new path); never exfiltrate or share unauthorized samples or data.
+* **Emergency Stop Procedures:** Press `Ctrl+C` (`KillSwitch`) to trigger a graceful stop after the current step (`AbortRequested`, exit code `130`), or press `Ctrl+C` a second time to force an immediate exit (`KeyboardInterrupt`). If an unexpected, sensitive, or live malware artifact is encountered, stop immediately, isolate the workspace/VM, preserve logs, and report to your instructor, supervisor, or lab administrator.
+
+---
+
+## Responsible Disclosure
+
+* **Who:** Report confirmed vulnerabilities, suspicious live malware, or security issues to the repository/system owner, affected software vendor or national CERT (such as **MyCERT** in Malaysia), and your course instructor or supervisor where applicable.
+* **When:** Report promptly once an issue or sample is confirmed, giving owners/responders time to investigate and remediate before any public discussion or release.
+* **How:** Use a private, official, or designated reporting channel with clear reproduction steps, affected versions/hashes, and impact details—do not publish exploit material, live credentials, or unredacted sensitive data.
+
+---
+
+## Legal Disclaimer
+
+This tool is provided for educational and authorized security/forensic analysis purposes only. Under Malaysia's **Computer Crimes Act 1997 (Akta Kesalahan Komputer 1997)**, offences such as unauthorised access to computer material (s. 3) and unauthorised modification of computer contents (s. 5) carry serious criminal penalties, and comparable laws apply in other jurisdictions. Nothing in this repository constitutes legal advice; users are solely responsible for ensuring their actions comply with applicable laws and institutional rules.
+
+---
+
+## Limitations
+
+* **Static Header & Heuristic Scope Only:** Does not execute code, unpack packed binaries dynamically, parse import/export tables in full, or compute section entropy/strings directly (though `rva_to_offset()` and `section_bytes()` are provided to support future modules).
+* **False Positives & False Negatives:** Standard or legitimate binaries may trigger warnings (e.g., missing `ASLR`/`DEP`, overlay data, custom section names), while obfuscated, packed, or runtime-dependent threats may go undetected.
+* **Resource & Parsing Caps:** Enforces `--max-files` (default `100`), `--max-size-mb` (default `64` MB), `MAX_SECTIONS = 96`, and `MAX_DATA_DIRS = 16`, and treats malformed or truncated inputs as `NotPE` errors or parser warnings rather than full structural analysis.
